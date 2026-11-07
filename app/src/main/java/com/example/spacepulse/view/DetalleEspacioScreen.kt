@@ -1,5 +1,6 @@
 package com.example.spacepulse.view
 
+import android.content.Context
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -15,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -32,6 +34,11 @@ fun DetalleEspacioScreen(
     spaceViewModel: SpaceViewModel,
     spaceId: Long // Corresponde al vehicleId
 ) {
+    val context = LocalContext.current
+    val sharedPref = remember { context.getSharedPreferences("SpacePulsePrefs", Context.MODE_PRIVATE) }
+    val userRole = sharedPref.getString("USER_ROLE", "ROLE_ARRENDATARIO") ?: "ROLE_ARRENDATARIO"
+    val isOwner = userRole.contains("arrendador", ignoreCase = true) || userRole.contains("propietario", ignoreCase = true)
+
     val darkBlue = Color(0xFF2C3E50)
     val accentBlue = Color(0xFF4DB7ED)
 
@@ -40,6 +47,7 @@ fun DetalleEspacioScreen(
 
     val reviews by spaceViewModel.reviews.collectAsState()
     val bookingState by spaceViewModel.createBookingState.collectAsState()
+    val reviewState by spaceViewModel.createReviewState.collectAsState()
 
     var showBookingDialog by remember { mutableStateOf(false) }
     var startDateText by remember { mutableStateOf("2026-10-10") }
@@ -63,6 +71,19 @@ fun DetalleEspacioScreen(
             spaceViewModel.resetStates()
         } else if (bookingState?.isFailure == true) {
             alertMessage = bookingState?.exceptionOrNull()?.message ?: "Error al reservar"
+        }
+    }
+
+    LaunchedEffect(reviewState) {
+        if (reviewState?.isSuccess == true) {
+            alertMessage = "¡Reseña registrada con éxito en el sistema!"
+            showReviewDialog = false
+            reviewComment = ""
+            spaceViewModel.fetchVehicleReviews(spaceId)
+            spaceViewModel.resetStates()
+        } else if (reviewState?.isFailure == true) {
+            alertMessage = reviewState?.exceptionOrNull()?.message ?: "No se pudo registrar la reseña"
+            spaceViewModel.resetStates()
         }
     }
 
@@ -259,15 +280,34 @@ fun DetalleEspacioScreen(
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        Button(
-                            onClick = { showBookingDialog = true },
-                            modifier = Modifier.fillMaxWidth().height(48.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = darkBlue),
-                            shape = RoundedCornerShape(10.dp)
-                        ) {
-                            Icon(Icons.Filled.Event, contentDescription = null)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Reservar este vehículo", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        if (!isOwner) {
+                            Button(
+                                onClick = { showBookingDialog = true },
+                                modifier = Modifier.fillMaxWidth().height(48.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = darkBlue),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Icon(Icons.Filled.Event, contentDescription = null)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Reservar este vehículo", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            }
+                        } else {
+                            Surface(
+                                color = Color(0xFFE8F8F5),
+                                shape = RoundedCornerShape(10.dp),
+                                border = BorderStroke(1.dp, Color(0xFF2ECC71).copy(alpha = 0.5f)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(14.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(Icons.Filled.DirectionsCar, contentDescription = null, tint = Color(0xFF27AE60), modifier = Modifier.size(20.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Tu vehículo publicado", fontWeight = FontWeight.Bold, color = Color(0xFF27AE60), fontSize = 15.sp)
+                                }
+                            }
                         }
                     }
                 }
@@ -288,31 +328,56 @@ fun DetalleEspacioScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("Reseñas (${reviews.size})", fontWeight = FontWeight.Bold, fontSize = 17.sp, color = darkBlue)
+                            Text(
+                                text = if (isOwner) "Reseñas recibidas (${reviews.size})" else "Reseñas (${reviews.size})",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 17.sp,
+                                color = darkBlue
+                            )
                             TextButton(onClick = { showReviewDialog = true }) {
                                 Text("+ Dejar reseña", color = accentBlue)
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
 
                         if (reviews.isEmpty()) {
-                            Text("Aún no hay reseñas para este vehículo.", fontSize = 14.sp, color = Color.Gray)
+                            Text(
+                                text = if (isOwner) "Aún no has recibido reseñas para este auto." else "Aún no hay reseñas para este vehículo. ¡Sé el primero en dejar una!",
+                                fontSize = 14.sp,
+                                color = Color.Gray
+                            )
                         } else {
                             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                 reviews.forEach { review ->
-                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                        Column {
-                                            Row {
-                                                repeat(review.rating) {
-                                                    Icon(Icons.Filled.Star, contentDescription = null, tint = Color(0xFFF1C40F), modifier = Modifier.size(16.dp))
+                                    Card(
+                                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAFB)),
+                                        shape = RoundedCornerShape(10.dp),
+                                        border = BorderStroke(1.dp, Color(0xFFEDF2F7)),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Column(modifier = Modifier.padding(12.dp)) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    repeat(review.rating) {
+                                                        Icon(Icons.Filled.Star, contentDescription = null, tint = Color(0xFFF1C40F), modifier = Modifier.size(16.dp))
+                                                    }
+                                                    repeat((5 - review.rating).coerceAtLeast(0)) {
+                                                        Icon(Icons.Filled.Star, contentDescription = null, tint = Color(0xFFE0E0E0), modifier = Modifier.size(16.dp))
+                                                    }
+                                                }
+                                                review.createdAt?.take(10)?.let { dateStr ->
+                                                    Text(dateStr, fontSize = 12.sp, color = Color.Gray)
                                                 }
                                             }
-                                            Spacer(modifier = Modifier.height(2.dp))
+                                            Spacer(modifier = Modifier.height(6.dp))
                                             Text(review.comment, fontSize = 14.sp, color = Color.DarkGray)
                                         }
                                     }
-                                    HorizontalDivider(color = Color(0xFFF5F5F5))
                                 }
                             }
                         }

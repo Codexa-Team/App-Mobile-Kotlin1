@@ -2,6 +2,7 @@ package com.example.spacepulse.view
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -192,8 +193,8 @@ fun MisCarrosOwnerView(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Usar myVehicles o filtrar allVehicles si myVehicles está vacío
-            val displayList = if (myVehicles.isNotEmpty()) myVehicles else allVehicles
+            // Mostrar únicamente los vehículos del arrendador actual
+            val displayList = myVehicles
 
             if (displayList.isEmpty()) {
                 Box(
@@ -231,6 +232,7 @@ fun MisCarrosOwnerView(
                     items(displayList) { vehicle ->
                         OwnerVehicleCard(
                             vehicle = vehicle,
+                            onViewDetails = { navController.navigate("detalleEspacio/${vehicle.id}") },
                             onEdit = { editingVehicle = vehicle },
                             onDelete = { vehicleToDelete = vehicle }
                         )
@@ -244,6 +246,7 @@ fun MisCarrosOwnerView(
 @Composable
 fun OwnerVehicleCard(
     vehicle: VehicleResource,
+    onViewDetails: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -255,7 +258,9 @@ fun OwnerVehicleCard(
         colors = CardDefaults.cardColors(containerColor = Color.White),
         shape = RoundedCornerShape(14.dp),
         border = BorderStroke(1.dp, Color(0xFFE5E7E9)),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onViewDetails() }
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Row(
@@ -337,31 +342,45 @@ fun OwnerVehicleCard(
             // Botones de Acción
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 OutlinedButton(
-                    onClick = onEdit,
+                    onClick = onViewDetails,
                     shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = darkBlue),
+                    border = BorderStroke(1.dp, darkBlue.copy(alpha = 0.5f)),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
                 ) {
-                    Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Editar", fontSize = 13.sp)
+                    Icon(Icons.Filled.Star, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color(0xFFF1C40F))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Ver Reseñas", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 }
 
-                Spacer(modifier = Modifier.width(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedButton(
+                        onClick = onEdit,
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Editar", fontSize = 13.sp)
+                    }
 
-                OutlinedButton(
-                    onClick = onDelete,
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFE74C3C)),
-                    border = BorderStroke(1.dp, Color(0xFFE74C3C).copy(alpha = 0.5f)),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                ) {
-                    Icon(Icons.Filled.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Eliminar", fontSize = 13.sp)
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    OutlinedButton(
+                        onClick = onDelete,
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFE74C3C)),
+                        border = BorderStroke(1.dp, Color(0xFFE74C3C).copy(alpha = 0.5f)),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Icon(Icons.Filled.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Eliminar", fontSize = 13.sp)
+                    }
                 }
             }
         }

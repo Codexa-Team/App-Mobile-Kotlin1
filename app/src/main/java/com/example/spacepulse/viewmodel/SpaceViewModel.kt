@@ -367,8 +367,11 @@ class SpaceViewModel : ViewModel() {
                 val request = CreateReviewResource(vehicleId, rating, comment)
                 val response = RetrofitClient.webService.createReview(request)
                 if (response.isSuccessful) {
-                    _createReviewState.value = Result.success("Reseña publicada")
+                    _createReviewState.value = Result.success("Reseña publicada con éxito")
                     fetchVehicleReviews(vehicleId)
+                } else {
+                    val errorMsg = response.errorBody()?.string() ?: "Error al enviar la reseña (${response.code()})"
+                    _createReviewState.value = Result.failure(Exception(errorMsg))
                 }
             } catch (e: Exception) {
                 _createReviewState.value = Result.failure(e)
